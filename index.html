@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="AMR Prism — first-principles genotype–phenotype analysis for AMRFinderPlus clinical isolates.">
+  <title>AMR Prism · Genotype–Phenotype Intelligence</title>
+  <link rel="stylesheet" href="assets/css/styles.css?v=20261117">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23071019'/%3E%3Cpath d='M14 46 30 18l6 28z' fill='%2339e0c4' opacity='.9'/%3E%3Cpath d='M32 20 50 46H36z' fill='%237dd3fc' opacity='.7'/%3E%3C/svg%3E">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 48 48" fill="none">
+            <path d="M8 36 22 12l6 24z" fill="url(#prismA)" opacity=".95"/>
+            <path d="M24 14 40 36H28z" fill="url(#prismB)" opacity=".8"/>
+            <path d="M30 12h12M30 16h9M30 20h6" stroke="#7dd3fc" stroke-width="1.6" stroke-linecap="round"/>
+            <defs>
+              <linearGradient id="prismA" x1="8" y1="36" x2="28" y2="12" gradientUnits="userSpaceOnUse"><stop stop-color="#39e0c4"/><stop offset="1" stop-color="#2dd4bf" stop-opacity=".35"/></linearGradient>
+              <linearGradient id="prismB" x1="24" y1="14" x2="40" y2="36" gradientUnits="userSpaceOnUse"><stop stop-color="#7dd3fc"/><stop offset="1" stop-color="#a78bfa" stop-opacity=".35"/></linearGradient>
+            </defs>
+          </svg>
+        </div>
+        <div>
+          <div class="brand-name">AMR<span>Prism</span></div>
+          <div class="brand-tag">genotype → phenotype</div>
+        </div>
+      </div>
+
+      <nav class="nav" aria-label="Primary">
+        <button class="nav-item active" data-view="overview"><span data-icon="grid"></span><span>Overview</span></button>
+        <button class="nav-item" data-view="isolates"><span data-icon="microscope"></span><span>Isolates</span><span class="nav-count" id="nav-isolate-count">0</span></button>
+        <button class="nav-item" data-view="matrix"><span data-icon="matrix"></span><span>Concordance matrix</span></button>
+        <button class="nav-item" data-view="reasoning"><span data-icon="brain"></span><span>Reasoning lab</span></button>
+        <button class="nav-item" data-view="chat"><span data-icon="chat"></span><span>Ask AMR Prism</span><span class="nav-pill">AI</span></button>
+        <button class="nav-item" data-view="import"><span data-icon="upload"></span><span>Import data</span></button>
+        <button class="nav-item" data-view="report"><span data-icon="file"></span><span>Report builder</span></button>
+      </nav>
+
+      <div class="sidebar-foot">
+        <div class="dataset-chip" id="dataset-chip">
+          <span class="dot"></span>
+          <div>
+            <div class="dataset-name" id="dataset-name">No dataset</div>
+            <div class="dataset-meta" id="dataset-meta">Import or load demo data</div>
+          </div>
+        </div>
+        <div class="sidebar-note">
+          <strong>Research use only.</strong> Decision support, not a clinical diagnosis. Verify breakpoints locally.
+        </div>
+      </div>
+    </aside>
+
+    <div class="main">
+      <header class="topbar">
+        <div class="topbar-left">
+          <button class="icon-btn mobile-menu" id="menu-toggle" aria-label="Toggle navigation" data-icon="menu"></button>
+          <div class="crumb"><span id="crumb-root">Workspace</span><span class="crumb-sep">/</span><span id="crumb-view">Overview</span></div>
+        </div>
+        <div class="topbar-right">
+          <div class="topbar-stat" title="Assessed drug–isolate comparisons">
+            <span class="topbar-stat-label">Concordance</span>
+            <strong id="topbar-concordance">—</strong>
+          </div>
+          <button class="btn ghost" id="topbar-import" data-icon="upload">Import</button>
+          <button class="btn primary" id="topbar-report" data-icon="download">Download report</button>
+        </div>
+      </header>
+
+      <main id="view-root" class="view-root" tabindex="-1"></main>
+    </div>
+  </div>
+
+  <div id="modal-root"></div>
+  <div id="toast-root" class="toast-root" aria-live="polite"></div>
+  <div id="busy-root" class="busy-root hidden" aria-live="polite">
+    <div class="busy-card">
+      <div class="busy-spinner"></div>
+      <div>
+        <div class="busy-title" id="busy-title">Working…</div>
+        <div class="busy-sub" id="busy-sub">Preparing your report</div>
+      </div>
+    </div>
+  </div>
+
+  <script src="assets/js/knowledge.js?v=20261117"></script>
+  <script src="assets/js/genes.js?v=20261117"></script>
+  <script src="assets/js/data.js?v=20261117"></script>
+  <script src="assets/js/engine.js?v=20261117"></script>
+  <script src="assets/js/reasoner.js?v=20261117"></script>
+  <script src="assets/js/charts.js?v=20261117"></script>
+  <script src="assets/js/pdf.js?v=20261117"></script>
+  <script src="assets/js/report.js?v=20261117"></script>
+  <script src="assets/js/chat.js?v=20261117"></script>
+  <script src="assets/js/app.js?v=20261117"></script>
+</body>
+</html>

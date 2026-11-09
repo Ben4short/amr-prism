@@ -1,0 +1,14 @@
+# OS / editor junk
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+
+# Local reports and exports
+*.pdf
+AMR-Prism-*.json
+
+# Local tooling
+node_modules/
+__pycache__/
