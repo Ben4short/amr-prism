@@ -24,6 +24,8 @@ and can be hosted on GitHub Pages.
   via PBP5) kept separate from acquired determinants.
 - **Multimodal import**: AMRFinderPlus tables, AST tables, narrative text, JSON datasets,
   and evidence images.
+- **Lab results entry**: a 50-isolate study scaffold with direct S/I/R entry, optional MIC or
+  zone diameter, progress tracking, and CSV export for Excel.
 - **Concordance matrix** with concordance, observed SIR, and gene-presence views.
 - **Reasoning lab** for tracing one isolate from molecular evidence to phenotype.
 - **Ask AMR Prism** chat with a Conversation/Visual toggle; visual answers render annotated
@@ -45,18 +47,44 @@ Open <http://127.0.0.1:8080/>.
 You can also open `index.html` directly, though some browsers restrict local file access
 for imported images. A local static server is recommended.
 
+## Final-year study workflow
+
+The app boots into a blank **50-isolate study template**: 10 strains each of *Escherichia
+coli*, *Proteus mirabilis*, *Klebsiella pneumoniae*, *Enterococcus spp.*, and
+*Pseudomonas aeruginosa*. The analysis panel is fixed to eight drugs: ampicillin,
+amoxicillin, cefuroxime, ceftriaxone, cefepime, ciprofloxacin, gentamicin, and imipenem.
+
+1. **Load the study template** from the Overview or Import data view. Isolate IDs run from
+   `EC-01` to `PA-10`.
+2. **Import the AMRFinderPlus resistance gene table** for the public genomes. Use the
+   isolate IDs in the study template as the `Isolate` / `Sample` column so gene calls merge
+   into the correct isolate.
+3. **Enter the lab AST results** in **Lab results**. Choose S, I, or R for each isolate and
+   drug. Optionally record an MIC in mg/L, or a zone diameter with the `mm` suffix (for
+   example `18 mm`). If only an MIC is entered, the knowledge-base breakpoint interprets it.
+4. **Download the blank lab CSV** if the results are being collected in Excel first. The
+   long-format template has one row per isolate and drug and can be re-imported through
+   **Import data** as an AST table.
+5. **Review concordance** in the Overview, Concordance matrix, and Reasoning lab, then
+   generate the PDF report.
+
+The synthetic 13-isolate demo remains available from **Import data → Load demo** for
+teaching and for checking the reasoning chains.
+
 ## Using the app
 
 1. **Overview** — cohort-level concordance, resistance, and teaching signals.
 2. **Isolates** — browse isolates and open a drawer with determinants, phenotypes, and
    per-drug reasoning.
-3. **Concordance matrix** — compare all isolates against all drugs; switch between
+3. **Lab results** — enter or update the S/I/R phenotype for each isolate and study drug,
+   with optional MIC or zone values and a progress counter.
+4. **Concordance matrix** — compare all isolates against all drugs; switch between
    concordance status, observed SIR, and gene presence.
-4. **Reasoning lab** — select an isolate and inspect the full chain for each drug.
-5. **Ask AMR Prism** — ask about an isolate, gene, drug, or the cohort. Toggle between
+5. **Reasoning lab** — select an isolate and inspect the full chain for each drug.
+6. **Ask AMR Prism** — ask about an isolate, gene, drug, or the cohort. Toggle between
    conversational and annotated visual answers.
-6. **Import data** — paste or drop AMRFinderPlus/AST tables, narratives, JSON, or images.
-7. **Report builder** — configure and generate a multi-page PDF report.
+7. **Import data** — paste or drop AMRFinderPlus/AST tables, narratives, JSON, or images.
+8. **Report builder** — configure and generate a multi-page PDF report.
 
 ## Reasoning model
 
@@ -101,7 +129,8 @@ JSON datasets use the following shape:
         { "symbol": "blaCTX-M-15", "identity": 100, "coverage": 100, "method": "EXACTX" }
       ],
       "phenotypes": [
-        { "drug": "meropenem", "mic": "8", "sir": "R" }
+        { "drug": "meropenem", "mic": "8", "sir": "R" },
+        { "drug": "gentamicin", "zone": "12 mm", "sir": "R" }
       ],
       "notes": "Free-text narrative"
     }
@@ -117,7 +146,7 @@ index.html                 App shell and script order
 assets/css/styles.css      Dashboard styling
 assets/js/knowledge.js     Drugs, species, intrinsic rules, axioms
 assets/js/genes.js         Gene/mechanism knowledge base
-assets/js/data.js          Synthetic 13-isolate teaching dataset
+assets/js/data.js          Synthetic teaching dataset and 50-isolate study scaffold
 assets/js/engine.js        Parsers, MIC/SIR interpretation, dataset merge
 assets/js/reasoner.js      First-principles concordance engine
 assets/js/charts.js        Dependency-free SVG charts

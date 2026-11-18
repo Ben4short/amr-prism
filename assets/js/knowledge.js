@@ -43,7 +43,8 @@ window.AMR = window.AMR || {};
     },
     'amoxicillin': {
       name: 'Amoxicillin', short: 'AMX', class: 'penicillins',
-      aliases: ['amoxicillin', 'amoxycillin', 'amx']
+      aliases: ['amoxicillin', 'amoxycillin', 'amx'],
+      bp: { ent: bp(8, 32), enc: bp(8, 16) }
     },
     'amoxicillin-clavulanate': {
       name: 'Amoxicillin–clavulanate', short: 'AMC', class: 'bl_inhibitor',
@@ -83,6 +84,11 @@ window.AMR = window.AMR || {};
       name: 'Cefoxitin', short: 'FOX', class: 'cephalosporins',
       aliases: ['cefoxitin', 'fox', 'mefoxin'],
       bp: { ent: bp(8, 32), sta: bp(4, 8) }
+    },
+    'cefuroxime': {
+      name: 'Cefuroxime', short: 'CXM', class: 'cephalosporins',
+      aliases: ['cefuroxime', 'cefuroxine', 'cefuroxim', 'cxm', 'zinnat', 'zinacef'],
+      bp: { ent: bp(8, 32) }
     },
     'ceftriaxone': {
       name: 'Ceftriaxone', short: 'CRO', class: 'cephalosporins',
@@ -344,6 +350,10 @@ window.AMR = window.AMR || {};
     'staphylococcus aureus': { label: 'Staphylococcus aureus', short: 'S. aureus', group: 'sta', gram: 'positive' },
     'enterococcus faecium': { label: 'Enterococcus faecium', short: 'E. faecium', group: 'enc', gram: 'positive' },
     'enterococcus faecalis': { label: 'Enterococcus faecalis', short: 'E. faecalis', group: 'enc', gram: 'positive' },
+    'enterococcus spp.': { label: 'Enterococcus spp.', short: 'Enterococcus spp.', group: 'enc', gram: 'positive' },
+    'enterococcus spp': { label: 'Enterococcus spp.', short: 'Enterococcus spp.', group: 'enc', gram: 'positive' },
+    'enterococcus species': { label: 'Enterococcus spp.', short: 'Enterococcus spp.', group: 'enc', gram: 'positive' },
+    'enterococcus': { label: 'Enterococcus spp.', short: 'Enterococcus spp.', group: 'enc', gram: 'positive' },
     'streptococcus pneumoniae': { label: 'Streptococcus pneumoniae', short: 'S. pneumoniae', group: 'other', gram: 'positive' }
   };
 
@@ -353,18 +363,18 @@ window.AMR = window.AMR || {};
       { drugs: ['penicillin'], reason: 'Enterobacterales are not reliably susceptible to penicillin G; β-lactam agents with better penetration are used.' }
     ],
     psa: [
-      { drugs: ['ampicillin', 'amoxicillin', 'amoxicillin-clavulanate', 'cefazolin', 'cefoxitin', 'ceftriaxone', 'cefotaxime', 'ertapenem'], reason: 'Chromosomal AmpC (PDC) expression plus low outer-membrane permeability and efflux give intrinsic resistance to these agents.' },
+      { drugs: ['ampicillin', 'amoxicillin', 'amoxicillin-clavulanate', 'cefazolin', 'cefoxitin', 'cefuroxime', 'ceftriaxone', 'cefotaxime', 'ertapenem'], reason: 'Chromosomal AmpC (PDC) expression plus low outer-membrane permeability and efflux give intrinsic resistance to these agents.' },
       { drugs: ['vancomycin', 'teicoplanin', 'linezolid', 'daptomycin', 'erythromycin', 'azithromycin', 'clarithromycin', 'clindamycin', 'rifampin', 'trimethoprim-sulfamethoxazole'], reason: 'Intrinsic low permeability / lack of target or uptake makes these agents unreliable against P. aeruginosa.' }
     ],
     aba: [
-      { drugs: ['ampicillin', 'amoxicillin', 'amoxicillin-clavulanate', 'cefazolin', 'cefoxitin', 'ceftriaxone', 'cefotaxime', 'ertapenem'], reason: 'Chromosomal ADC (AmpC) and intrinsic OXA-51-like β-lactamase plus low permeability.' },
+      { drugs: ['ampicillin', 'amoxicillin', 'amoxicillin-clavulanate', 'cefazolin', 'cefoxitin', 'cefuroxime', 'ceftriaxone', 'cefotaxime', 'ertapenem'], reason: 'Chromosomal ADC (AmpC) and intrinsic OXA-51-like β-lactamase plus low permeability.' },
       { drugs: ['vancomycin', 'teicoplanin', 'linezolid', 'daptomycin', 'erythromycin', 'azithromycin', 'clarithromycin', 'clindamycin', 'rifampin'], reason: 'Intrinsic low permeability and absence of a susceptible target/uptake route.' }
     ],
     sta: [
       { drugs: ['colistin', 'polymyxin-b', 'aztreonam'], reason: 'The Gram-positive cell envelope lacks the LPS target of polymyxins; aztreonam has no meaningful activity against Gram-positive organisms.' }
     ],
     enc: [
-      { drugs: ['cefazolin', 'cefoxitin', 'ceftriaxone', 'cefotaxime', 'ceftazidime', 'cefepime', 'ceftaroline', 'ceftobiprole'], reason: 'Enterococci express low-affinity PBPs (PBP5 in E. faecium) and are intrinsically resistant to cephalosporins.' },
+      { drugs: ['cefazolin', 'cefoxitin', 'cefuroxime', 'ceftriaxone', 'cefotaxime', 'ceftazidime', 'cefepime', 'ceftaroline', 'ceftobiprole'], reason: 'Enterococci express low-affinity PBPs (PBP5 in E. faecium) and are intrinsically resistant to cephalosporins.' },
       { drugs: ['clindamycin'], reason: 'Enterococci are intrinsically resistant to lincosamides.' }
     ]
   };
@@ -421,6 +431,10 @@ window.AMR = window.AMR || {};
     'no-call': { label: 'No call', short: '?', color: '#647f96', tone: 'outline', desc: 'Insufficient evidence for a comparison.' }
   };
 
+  // Final-year study panel. Keeping this list in the knowledge base means the
+  // analysis, lab-entry table, CSV template, and report all use the same drugs.
+  const STUDY_DRUGS = ['ampicillin', 'amoxicillin', 'cefuroxime', 'ceftriaxone', 'cefepime', 'ciprofloxacin', 'gentamicin', 'imipenem'];
+
   const MDR_CATEGORIES = {
     penicillins: 'Penicillins', cephalosporins: 'Cephalosporins', carbapenems: 'Carbapenems', monobactams: 'Monobactams',
     bl_inhibitor: 'β-lactam/inhibitor combinations', ceph_inhibitor: 'Cephalosporin/inhibitor combinations', carb_inhibitor: 'Carbapenem/inhibitor combinations',
@@ -438,6 +452,7 @@ window.AMR = window.AMR || {};
     INTRINSIC: INTRINSIC,
     INTRINSIC_SPECIES: INTRINSIC_SPECIES,
     AXIOMS: AXIOMS,
+    STUDY_DRUGS: STUDY_DRUGS,
     CONCORDANCE: CONCORDANCE,
     MDR_CATEGORIES: MDR_CATEGORIES,
     GENE_ENTRIES: [],

@@ -278,7 +278,7 @@ window.AMR = window.AMR || {};
     y += 6;
     y = kpiRow(doc, [
       { label: 'Isolates', value: a.isolates.length, sub: a.speciesDistribution.length + ' species' },
-      { label: 'Assessed comparisons', value: a.assessedTotal, sub: 'MIC or SIR available' },
+      { label: 'Assessed comparisons', value: a.assessedTotal, sub: 'MIC, zone, or SIR available' },
       { label: 'Strict concordance', value: fmtPct(a.strictRate), color: C_TEAL, sub: 'weighted ' + fmtPct(a.weightedRate) },
       { label: 'Major mismatches', value: a.majorMismatchTotal, color: C_RED, sub: fmtPct(a.majorRate) + ' of assessed' }
     ], y);
@@ -451,7 +451,7 @@ window.AMR = window.AMR || {};
         x: X, y: y, width: W, fontSize: 7.1, headerSize: 6.3,
         columns: [
           { key: 'drug', label: 'Drug', width: 120, bold: true },
-          { key: 'mic', label: 'MIC', width: 48, align: 'right' },
+          { key: 'mic', label: 'MIC/zone', width: 54, align: 'right' },
           { key: 'obs', label: 'Obs', width: 30, align: 'center' },
           { key: 'pred', label: 'Pred', width: 48 },
           { key: 'status', label: 'Status', width: 90 },
@@ -461,7 +461,7 @@ window.AMR = window.AMR || {};
         rows: assessedFindings.map(function (f) {
           return {
             drug: f.drugName,
-            mic: f.observedMic || '—',
+            mic: f.observedMic || f.observedZone || '—',
             obs: f.observed,
             pred: f.predictedLabel,
             status: statusLabel(f.status),

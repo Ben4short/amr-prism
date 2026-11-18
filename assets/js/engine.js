@@ -276,7 +276,12 @@ window.AMR = window.AMR || {};
 
   function parseAstValue(raw) {
     const s = String(raw == null ? '' : raw).trim();
-    if (!s) return { mic: null, sir: null };
+    if (!s) return { mic: null, zone: null, sir: null };
+    if (/mm/i.test(s)) {
+      const zm = s.match(/(\d+(?:\.\d+)?)\s*mm/i);
+      const sm = s.match(/\b(R|I|S)\b/i);
+      return { mic: null, zone: zm ? zm[1] + ' mm' : s, sir: sm ? E.normalizeSIR(sm[1]) : null };
+    }
     let sir = E.normalizeSIR(s);
     let mic = null;
     if (!sir || /[0-9]/.test(s)) {
@@ -309,6 +314,12 @@ window.AMR = window.AMR || {};
       if (!drugId) return;
       let sir = E.normalizeSIR(sirRaw);
       let mic = micRaw == null ? null : String(micRaw).trim();
+      let zone = null;
+      if (mic && /mm/i.test(mic)) {
+        const zm = mic.match(/(\d+(?:\.\d+)?)/);
+        zone = zm ? zm[1] + ' mm' : mic;
+        mic = null;
+      }
       let sirSource = sir ? 'reported' : null;
       let conf = sir ? 0.9 : 0.5;
       let interpNote = '';
@@ -316,9 +327,9 @@ window.AMR = window.AMR || {};
         const r = E.interpretMIC(drugId, mic, isolate.species);
         if (r.sir) { sir = r.sir; sirSource = 'interpreted'; conf = r.confidence; interpNote = r.note; }
       }
-      if (!sir && !mic) return;
+      if (!sir && !mic && !zone) return;
       isolate.phenotypes.push({
-        drug: drugId, drugName: drugName, rawDrug: drugRaw, mic: mic, sir: sir, sirSource: sirSource,
+        drug: drugId, drugName: drugName, rawDrug: drugRaw, mic: mic, zone: zone, sir: sir, sirSource: sirSource,
         method: method || '', note: [note, interpNote].filter(Boolean).join(' '), date: date || '', confidence: conf
       });
     }
@@ -345,7 +356,7 @@ window.AMR = window.AMR || {};
         const isolate = ensure(id, species);
         drugCols.forEach(function (h) {
           const v = parseAstValue(row[h]);
-          if (v.mic || v.sir) addPheno(isolate, h, v.mic, v.sir, cols.method ? row[cols.method] : '', '', cols.date ? row[cols.date] : '');
+          if (v.mic || v.zone || v.sir) addPheno(isolate, h, v.zone || v.mic, v.sir, cols.method ? row[cols.method] : '', '', cols.date ? row[cols.date] : '');
         });
       });
     }

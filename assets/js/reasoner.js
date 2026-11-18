@@ -230,7 +230,7 @@ window.AMR = window.AMR || {};
       });
       chain.push({
         label: 'Premise 3 · drug context',
-        text: finding.drugName + ' belongs to the ' + E.classInfo(finding.drugClass).label.toLowerCase() + ' class. ' + (finding.observedMic ? 'The reported MIC is ' + finding.observedMic + ' mg/L.' : '')
+        text: finding.drugName + ' belongs to the ' + E.classInfo(finding.drugClass).label.toLowerCase() + ' class. ' + (finding.observedMic ? 'The reported MIC is ' + finding.observedMic + ' mg/L.' : finding.observedZone ? 'The reported zone diameter is ' + finding.observedZone + '.' : '')
       });
       chain.push({
         label: 'Inference · predicted effect',
@@ -254,7 +254,7 @@ window.AMR = window.AMR || {};
     }
     chain.push({
       label: 'Observation · phenotype',
-      text: finding.observed ? (finding.drugName + ' is ' + (finding.observed === 'R' ? 'resistant' : finding.observed === 'I' ? 'intermediate' : 'susceptible') + (finding.observedMic ? ' (MIC ' + finding.observedMic + ' mg/L)' : '') + '.') : 'No phenotype is available for this drug.'
+      text: finding.observed ? (finding.drugName + ' is ' + (finding.observed === 'R' ? 'resistant' : finding.observed === 'I' ? 'intermediate' : 'susceptible') + (finding.observedMic ? ' (MIC ' + finding.observedMic + ' mg/L)' : finding.observedZone ? ' (zone ' + finding.observedZone + ')' : '') + '.') : 'No phenotype is available for this drug.'
     });
     const conclusionDesc = intrinsic && finding.status === 'concordant-r'
       ? 'A species-intrinsic mechanism predicts resistance and the isolate is resistant.'
@@ -312,16 +312,18 @@ window.AMR = window.AMR || {};
     return h.sort(function (a, b) { return b.probability - a.probability; }).slice(0, 5);
   }
 
-  function analyzeIsolate(isolate) {
+  function analyzeIsolate(isolate, drugPanel) {
     const dets = determinantsFor(isolate);
     const phenotypes = {};
     (isolate.phenotypes || []).forEach(function (p) { phenotypes[p.drug] = p; });
     const drugIds = E.uniq(Object.keys(phenotypes).concat(
       dets.reduce(function (acc, d) { return acc.concat(Object.keys(d.overrides || {})); }, [])
     ));
-    // Add all drugs referenced by effects classes? Only phenotype drugs + overrides is enough for comparison.
-    // For gene findings, we also consider common drugs in the same classes.
-    const allDrugIds = E.uniq(drugIds.concat(Object.keys(KB.DRUGS)));
+    // A dataset can define a focused drug panel (the final-year study uses
+    // eight drugs). Always keep any drug that actually has a phenotype so
+    // imported extra results are never silently hidden.
+    const panel = (drugPanel && drugPanel.length) ? drugPanel : Object.keys(KB.DRUGS);
+    const allDrugIds = E.uniq(panel.concat(drugIds));
     const findings = [];
     allDrugIds.forEach(function (drugId) {
       const info = E.drugInfo(drugId);
@@ -362,7 +364,7 @@ window.AMR = window.AMR || {};
       const confidence = confidenceFor(status, uniqSupports, observedConf);
       const finding = {
         drug: drugId, drugName: info.name, drugClass: info.class, drugClassLabel: E.classInfo(info.class).label,
-        observed: observed, observedMic: obs ? obs.mic : null, observedSource: obs ? obs.sirSource : null,
+        observed: observed, observedMic: obs ? obs.mic : null, observedZone: obs ? obs.zone : null, observedSource: obs ? obs.sirSource : null,
         observedMethod: obs ? obs.method : '', observedNote: obs ? obs.note : '',
         predicted: predicted, predictedLabel: predictedLabel(predicted, variable, knownSusceptible),
         noKnown: noKnown, variable: variable, knownSusceptible: knownSusceptible,
@@ -444,7 +446,8 @@ window.AMR = window.AMR || {};
 
   function analyzeDataset(dataset) {
     const isolates = (dataset && dataset.isolates) || [];
-    const analyses = isolates.map(analyzeIsolate);
+    const panel = (dataset && dataset.drugPanel) || null;
+    const analyses = isolates.map(function (iso) { return analyzeIsolate(iso, panel); });
     const byId = {};
     analyses.forEach(function (a) { byId[a.isolate.id] = a; });
 

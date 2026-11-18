@@ -291,6 +291,50 @@ window.AMR = window.AMR || {};
     isolates: ISOLATES
   };
 
+  /* ------------------------------------------------------------------ */
+  /* Final-year study scaffold                                           */
+  /* 5 species x 10 public genomes = 50 isolates, 8 study drugs.         */
+  /* Genes and phenotypes are intentionally blank until the student      */
+  /* imports AMRFinderPlus output and enters the lab AST results.        */
+  /* ------------------------------------------------------------------ */
+  const STUDY_SPECIES = [
+    { code: 'EC', name: 'Escherichia coli' },
+    { code: 'PM', name: 'Proteus mirabilis' },
+    { code: 'KP', name: 'Klebsiella pneumoniae' },
+    { code: 'EF', name: 'Enterococcus spp.' },
+    { code: 'PA', name: 'Pseudomonas aeruginosa' }
+  ];
+
+  const STUDY_ISOLATES = [];
+  STUDY_SPECIES.forEach(function (sp) {
+    for (let i = 1; i <= 10; i++) {
+      STUDY_ISOLATES.push(iso({
+        id: sp.code + '-' + String(i).padStart(2, '0'),
+        species: sp.name,
+        source: 'Public genome',
+        collectionDate: '',
+        location: '',
+        age: '',
+        sex: '',
+        notes: 'Public genome. Import the AMRFinderPlus resistance gene table, then enter the lab AST result in Lab results.',
+        genes: [],
+        phenotypes: [],
+        images: []
+      }));
+    }
+  });
+
+  AMR.STUDY = {
+    id: 'fy-study-2026',
+    name: 'Final-year study · 5 species × 10 strains',
+    description: 'Fifty public genomes (10 each of E. coli, P. mirabilis, K. pneumoniae, Enterococcus spp. and P. aeruginosa) screened with AMRFinderPlus and compared with lab AST results for eight study drugs.',
+    createdAt: '2026-11-10T00:00:00Z',
+    source: 'Public genomes + AMRFinderPlus',
+    drugPanel: (AMR.KB && AMR.KB.STUDY_DRUGS ? AMR.KB.STUDY_DRUGS : ['ampicillin', 'amoxicillin', 'cefuroxime', 'ceftriaxone', 'cefepime', 'ciprofloxacin', 'gentamicin', 'imipenem']).slice(),
+    images: [],
+    isolates: STUDY_ISOLATES
+  };
+
   AMR.makeEmptyDataset = function (name) {
     return {
       id: 'ds-' + Date.now(),

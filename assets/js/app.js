@@ -12,9 +12,9 @@ window.AMR = window.AMR || {};
   const Chat = AMR.Chat;
   const Rep = AMR.Report;
 
-  const STORE = 'amr-prism-state-v1';
+  const STORE = 'amr-prism-state-v2';
   const VIEW_LABEL = {
-    overview: 'Overview', isolates: 'Isolates', matrix: 'Concordance matrix',
+    overview: 'Overview', isolates: 'Isolates', lab: 'Lab results', matrix: 'Concordance matrix',
     reasoning: 'Reasoning lab', chat: 'Ask AMR Prism', import: 'Import data', report: 'Report builder'
   };
   const VALID_VIEWS = Object.keys(VIEW_LABEL);
@@ -25,6 +25,7 @@ window.AMR = window.AMR || {};
     view: 'overview',
     selectedIsolateId: null,
     filters: { isolateQuery: '', species: 'all', sort: 'id' },
+    lab: { species: 'all' },
     matrix: { mode: 'status', class: 'all', query: '' },
     chat: { mode: 'conversation', messages: [] },
     report: null,
@@ -138,7 +139,7 @@ window.AMR = window.AMR || {};
     }).join(' ') : '<span class="muted tiny">No detected determinant maps to this drug.</span>';
     return '<details class="finding"' + (open ? ' open' : '') + '><summary class="finding-head">' +
       '<div><div class="finding-drug">' + esc(f.drugName) + '</div><div class="tiny muted">' + esc(f.drugClassLabel) +
-      (f.observedMic ? ' · MIC ' + esc(f.observedMic) + ' mg/L' : '') + '</div></div>' +
+      (f.observedMic ? ' · MIC ' + esc(f.observedMic) + ' mg/L' : f.observedZone ? ' · zone ' + esc(f.observedZone) : '') + '</div></div>' +
       '<div class="finding-badges">' + sirBadge(f.observed) + ' ' + statusBadge(f.status) + ' ' + confBadge(f.confidence) + '</div>' +
       '</summary><div class="finding-body">' +
       '<div class="finding-summary-line">Predicted <strong>' + esc(f.predictedLabel) + '</strong> · observed <strong>' + esc(f.observed || 'not tested') + '</strong> · confidence <strong>' + Math.round(f.confidence * 100) + '% (' + esc(f.confidenceLabel) + ')</strong></div>' +
@@ -175,7 +176,7 @@ window.AMR = window.AMR || {};
       const f = a.findings.find(function (x) { return x.drug === ph.drug; });
       return [
         '<strong>' + esc(ph.drugName || E.drugInfo(ph.drug).name) + '</strong>',
-        esc(ph.mic || '—'),
+        esc(ph.mic || ph.zone || '—'),
         sirBadge(ph.sir),
         f ? esc(f.predictedLabel) : '—',
         f ? statusBadge(f.status) : '<span class="badge outline">—</span>',
@@ -266,6 +267,7 @@ window.AMR = window.AMR || {};
       if (!App.analysis || !App.dataset) html = renderNoData();
       else if (App.view === 'overview') html = renderOverview();
       else if (App.view === 'isolates') html = renderIsolates();
+      else if (App.view === 'lab') html = renderLab();
       else if (App.view === 'matrix') html = renderMatrix();
       else if (App.view === 'reasoning') html = renderReasoning();
       else if (App.view === 'chat') html = renderChat();
@@ -281,6 +283,7 @@ window.AMR = window.AMR || {};
   }
   function afterRender() {
     if (App.view === 'isolates') bindIsolates();
+    if (App.view === 'lab') bindLab();
     if (App.view === 'matrix') bindMatrix();
     if (App.view === 'reasoning') bindReasoning();
     if (App.view === 'chat') bindChat();
@@ -292,12 +295,13 @@ window.AMR = window.AMR || {};
   /* overview                                                            */
   /* ------------------------------------------------------------------ */
   function renderNoData() {
-    return pageHead('Workspace', 'Start with evidence', 'Import AMRFinderPlus output, AST results, a narrative, or load the synthetic teaching cohort. Everything is processed locally in this browser.') +
+    return pageHead('Workspace', 'Start with evidence', 'Import AMRFinderPlus output, AST results, a narrative, or load the 50-isolate study template. Everything is processed locally in this browser.') +
       '<div class="hero"><div class="hero-kicker"><span class="pulse"></span>No dataset loaded</div>' +
       '<h2 class="hero-title">Turn genotype and phenotype into an <em>explicit argument</em>.</h2>' +
       '<div class="hero-desc">AMR Prism compares detected resistance determinants with measured susceptibility using a transparent rule engine. It labels every comparison, ranks the explanations for disagreement, and names the next test that would discriminate between them.</div>' +
-      '<div class="hero-actions"><button class="btn primary" data-action="load-demo">' + icon('database') + 'Load demo cohort</button>' +
-      '<button class="btn" data-view="import">' + icon('upload') + 'Import data</button></div></div>' +
+      '<div class="hero-actions"><button class="btn primary" data-action="load-study">' + icon('flask') + 'Load study template</button>' +
+      '<button class="btn" data-action="load-demo">' + icon('database') + 'Load demo cohort</button>' +
+      '<button class="btn ghost" data-view="import">' + icon('upload') + 'Import data</button></div></div>' +
       '<div class="section"><div class="axiom-grid">' + KB.AXIOMS.slice(0, 4).map(function (ax) {
         return '<div class="axiom"><div class="a-id">' + ax.id + '</div><div class="a-title">' + esc(ax.title) + '</div><div class="a-text">' + esc(ax.text) + '</div></div>';
       }).join('') + '</div></div>';
@@ -308,18 +312,33 @@ window.AMR = window.AMR || {};
     const ds = App.dataset;
     const counts = a.counts;
     const teaching = a.topMismatches.slice(0, 3);
+    const lab = labStats();
+    const noLab = a.assessedTotal === 0;
+    const primary = noLab
+      ? '<button class="btn primary" data-view="lab">' + icon('flask') + 'Enter lab results</button>'
+      : '<button class="btn primary" data-view="chat">' + icon('chat') + 'Ask AMR Prism</button>';
     const hero = '<div class="hero"><div class="hero-kicker"><span class="pulse"></span>' + esc(ds.source || 'Imported evidence') + '</div>' +
       '<h2 class="hero-title">Read the <em>argument</em>, not just the gene list.</h2>' +
       '<div class="hero-desc">' + esc(ds.description || 'A genotype–phenotype review of the current cohort.') + ' Every prediction is traced from molecular evidence to biochemical action, drug context, and the observed phenotype. Disagreement is treated as a missing premise.</div>' +
-      '<div class="hero-actions"><button class="btn primary" data-view="chat">' + icon('chat') + 'Ask AMR Prism</button>' +
+      '<div class="hero-actions">' + primary +
       '<button class="btn" data-action="download-report">' + icon('download') + 'Download report</button>' +
       '<button class="btn ghost" data-view="import">' + icon('upload') + 'Import more</button></div>' +
       '<div class="hero-stats">' +
       '<div class="hero-stat"><div class="n">' + a.totalGenes + '</div><div class="l">determinant calls</div></div>' +
       '<div class="hero-stat"><div class="n">' + a.speciesDistribution.length + '</div><div class="l">species</div></div>' +
+      '<div class="hero-stat"><div class="n">' + lab.entered + '/' + lab.total + '</div><div class="l">lab results entered</div></div>' +
       '<div class="hero-stat"><div class="n">' + a.majorMismatchTotal + '</div><div class="l">major mismatches</div></div>' +
       '<div class="hero-stat"><div class="n">' + (a.images ? a.images.length : 0) + '</div><div class="l">evidence images</div></div>' +
       '</div></div>';
+
+    const labCta = noLab ? '<div class="section"><div class="card lab-cta"><div class="lab-cta-icon">' + icon('flask') + '</div>' +
+      '<div class="lab-cta-body"><div class="card-title">' + (a.totalGenes ? 'Enter the lab results to complete the comparison' : 'Two inputs are still missing') + '</div>' +
+      '<div class="card-sub">' + (a.totalGenes
+        ? 'The genomic side is loaded. Record the S/I/R result for each isolate and study drug, and the concordance analysis will populate immediately.'
+        : 'Import the AMRFinderPlus resistance table for the public genomes, then record the S/I/R result for each isolate and study drug. The study panel is ' + lab.panel.length + ' drugs across ' + a.isolates.length + ' isolates.') + '</div>' +
+      '<div class="lab-cta-actions"><button class="btn primary" data-view="lab">' + icon('flask') + 'Enter lab results</button>' +
+      '<button class="btn" data-view="import">' + icon('upload') + 'Import AMRFinderPlus</button>' +
+      '<button class="btn ghost" data-action="download-lab-template">' + icon('download') + 'Blank lab CSV</button></div></div></div></div>' : '';
 
     const kpis = '<div class="grid grid-4 section">' +
       kpi('Isolates', a.isolates.length, a.speciesDistribution.length + ' species', 'microscope') +
@@ -377,8 +396,8 @@ window.AMR = window.AMR || {};
         return '<div class="axiom"><div class="a-id">' + ax.id + '</div><div class="a-title">' + esc(ax.title) + '</div><div class="a-text">' + esc(ax.text) + '</div></div>';
       }).join('') + '</div></div>';
 
-    return pageHead('Cohort workspace', ds.name || 'Untitled dataset', esc(ds.description || ''), '<button class="btn" data-view="isolates">' + icon('microscope') + 'Isolates</button><button class="btn primary" data-action="download-report">' + icon('download') + 'Download report</button>') +
-      hero + kpis + charts + teachingHtml + mdr + axioms;
+    return pageHead('Cohort workspace', ds.name || 'Untitled dataset', esc(ds.description || ''), '<button class="btn" data-view="isolates">' + icon('microscope') + 'Isolates</button><button class="btn" data-view="lab">' + icon('flask') + 'Lab results</button><button class="btn primary" data-action="download-report">' + icon('download') + 'Download report</button>') +
+      hero + labCta + kpis + charts + teachingHtml + mdr + axioms;
   }
   function kpi(label, value, foot, iconName, tone) {
     return '<div class="card kpi ' + (tone || '') + '"><div class="kpi-label">' + icon(iconName || 'activity') + esc(label) + '</div>' +
@@ -411,7 +430,9 @@ window.AMR = window.AMR || {};
   function renderIsolates() {
     const a = App.analysis;
     const species = a.speciesDistribution.map(function (s) { return s.label; });
-    const actions = '<button class="btn ghost" data-action="load-demo">' + icon('refresh') + 'Reload demo</button>' +
+    const actions = '<button class="btn ghost" data-action="load-study">' + icon('flask') + 'Study template</button>' +
+      '<button class="btn ghost" data-action="load-demo">' + icon('refresh') + 'Demo</button>' +
+      '<button class="btn" data-view="lab">' + icon('flask') + 'Lab results</button>' +
       '<button class="btn primary" data-action="download-report">' + icon('download') + 'Download report</button>';
     return pageHead('Evidence', 'Isolates', 'Open an isolate to inspect its determinants, phenotypes, comparison status, and the full reasoning chain for every drug.', actions) +
       '<div class="table-tools"><div class="searchbox">' + icon('search') + '<input class="input" id="isolate-search" aria-label="Search isolates" placeholder="Search isolate, species, source, or gene…" value="' + esc(App.filters.isolateQuery) + '"></div>' +
@@ -469,6 +490,222 @@ window.AMR = window.AMR || {};
     if (sp) sp.addEventListener('change', function () { App.filters.species = this.value; renderIsolateGrid(); });
     const sort = $('#isolate-sort');
     if (sort) sort.addEventListener('change', function () { App.filters.sort = this.value; renderIsolateGrid(); });
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* lab results                                                         */
+  /* ------------------------------------------------------------------ */
+  function studyPanel() {
+    if (App.dataset && App.dataset.drugPanel && App.dataset.drugPanel.length) return App.dataset.drugPanel;
+    return (KB.STUDY_DRUGS || []).slice();
+  }
+  function labStats() {
+    const a = App.analysis;
+    const panel = studyPanel();
+    const isolates = a ? a.isolates : [];
+    let entered = 0, isolatesWith = 0;
+    const drugs = {};
+    isolates.forEach(function (ia) {
+      let any = false;
+      panel.forEach(function (drug) {
+        const p = (ia.isolate.phenotypes || []).find(function (x) { return x.drug === drug; });
+        if (p && (p.sir || p.mic || p.zone)) {
+          entered++;
+          any = true;
+          drugs[drug] = true;
+        }
+      });
+      if (any) isolatesWith++;
+    });
+    return {
+      panel: panel,
+      total: isolates.length * panel.length,
+      entered: entered,
+      isolatesWith: isolatesWith,
+      drugsCovered: Object.keys(drugs).length
+    };
+  }
+  function labStat(label, value, id) {
+    return '<div class="lab-stat"><div class="lab-stat-value" id="' + esc(id) + '">' + esc(value) + '</div><div class="lab-stat-label">' + esc(label) + '</div></div>';
+  }
+  function labCell(iso, drug) {
+    const p = (iso.phenotypes || []).find(function (x) { return x.drug === drug; });
+    const sir = p && p.sir ? p.sir : '';
+    const value = p ? (p.mic || p.zone || '') : '';
+    const tone = sir ? sir.toLowerCase() : 'none';
+    const title = p ? (p.sirSource === 'interpreted' ? 'SIR interpreted from the entered value' : p.sirSource === 'reported' ? 'SIR reported by the lab' : '') : '';
+    return '<td class="lab-cell lab-sir-' + tone + '"' + (title ? ' title="' + esc(title) + '"' : '') + '>' +
+      '<select class="lab-select" aria-label="' + esc(iso.id + ' ' + E.drugInfo(drug).name + ' SIR') + '" data-lab-isolate="' + esc(iso.id) + '" data-lab-drug="' + esc(drug) + '" data-lab-field="sir">' +
+      [['', '—'], ['S', 'S'], ['I', 'I'], ['R', 'R']].map(function (o) {
+        return '<option value="' + o[0] + '"' + (sir === o[0] ? ' selected' : '') + '>' + o[1] + '</option>';
+      }).join('') + '</select>' +
+      '<input class="lab-value" type="text" inputmode="decimal" placeholder="MIC/zone" aria-label="' + esc(iso.id + ' ' + E.drugInfo(drug).name + ' MIC or zone value') + '" data-lab-isolate="' + esc(iso.id) + '" data-lab-drug="' + esc(drug) + '" data-lab-field="value" value="' + esc(value) + '">' +
+      '</td>';
+  }
+  function renderLab() {
+    const a = App.analysis;
+    if (!a || !a.isolates.length) {
+      return '<div id="lab-view">' + pageHead('Study workflow', 'Lab results', 'Enter the phenotype results once the laboratory work is complete.') +
+        emptyState('flask', 'No isolates to record against', 'Load the 50-isolate study template first, then enter the lab AST results here.', '<button class="btn primary" data-action="load-study">' + icon('flask') + 'Load study template</button>') + '</div>';
+    }
+    const stats = labStats();
+    const panel = stats.panel;
+    const progress = stats.total ? Math.round(stats.entered / stats.total * 100) : 0;
+    const speciesList = a.speciesDistribution.map(function (s) { return s.label; });
+    const active = App.lab.species !== 'all' && speciesList.indexOf(App.lab.species) >= 0 ? App.lab.species : 'all';
+    const rows = a.isolates.filter(function (ia) {
+      return active === 'all' || E.speciesInfo(ia.isolate.species).label === active;
+    });
+    const pills = '<button class="lab-pill' + (active === 'all' ? ' active' : '') + '" data-lab-species="all">All species <span>' + a.isolates.length + '</span></button>' +
+      a.speciesDistribution.map(function (s) {
+        return '<button class="lab-pill' + (active === s.label ? ' active' : '') + '" data-lab-species="' + esc(s.label) + '">' +
+          esc(E.speciesInfo(s.label).short) + ' <span>' + s.count + '</span></button>';
+      }).join('');
+
+    const head = '<tr><th class="lab-iso">Isolate</th>' + panel.map(function (drug) {
+      const info = E.drugInfo(drug);
+      return '<th class="lab-drug"><span>' + esc(info.short || info.name) + '</span><small>' + esc(info.name) + '</small></th>';
+    }).join('') + '</tr>';
+
+    let body = '';
+    let lastSpecies = null;
+    rows.forEach(function (ia) {
+      const iso = ia.isolate;
+      const species = E.speciesInfo(iso.species).label;
+      if (species !== lastSpecies) {
+        lastSpecies = species;
+        body += '<tr class="lab-group"><td colspan="' + (panel.length + 1) + '">' + esc(species) + '</td></tr>';
+      }
+      body += '<tr><th class="lab-iso"><strong>' + esc(iso.id) + '</strong><span>' + esc(E.speciesInfo(iso.species).short) + '</span></th>' +
+        panel.map(function (drug) { return labCell(iso, drug); }).join('') + '</tr>';
+    });
+
+    const summary = '<div class="card card-pad lab-summary">' +
+      '<div class="lab-summary-top"><div><div class="card-title">Data entry progress</div>' +
+      '<div class="card-sub">S/I/R drives the comparison. Enter MIC in mg/L, or add “mm” for a zone diameter (for example 18 mm).</div></div>' +
+      '<div class="lab-progress-num"><strong id="lab-stat-entered">' + stats.entered + '</strong><span> / ' + stats.total + ' results</span></div></div>' +
+      '<div class="lab-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + progress + '" aria-label="Lab results entered"><span id="lab-progress-bar" style="width:' + progress + '%"></span></div>' +
+      '<div class="lab-stat-grid">' +
+      labStat('Isolates with a result', stats.isolatesWith + ' / ' + a.isolates.length, 'lab-stat-isolates') +
+      labStat('Study drugs covered', stats.drugsCovered + ' / ' + panel.length, 'lab-stat-drugs') +
+      labStat('Assessed comparisons', a.assessedTotal, 'lab-stat-assessed') +
+      labStat('Strict concordance', pct(a.strictRate), 'lab-stat-concordance') +
+      '</div></div>';
+
+    const toolbar = '<div class="lab-toolbar"><div class="lab-pills">' + pills + '</div>' +
+      '<div class="lab-legend"><span><i class="lab-dot s"></i>S susceptible</span><span><i class="lab-dot i"></i>I intermediate</span><span><i class="lab-dot r"></i>R resistant</span></div></div>';
+
+    const table = '<div class="card lab-card"><div class="lab-card-head"><div><div class="card-title">' +
+      (active === 'all' ? 'All study isolates' : esc(active)) + '</div>' +
+      '<div class="card-sub">' + rows.length + ' isolate' + (rows.length === 1 ? '' : 's') + ' × ' + panel.length + ' drugs. Changes save automatically.</div></div>' +
+      '<button class="btn small ghost" data-action="download-lab-template">' + icon('download') + 'Blank CSV</button></div>' +
+      '<div class="lab-scroll"><table class="lab-table"><thead>' + head + '</thead><tbody>' + body + '</tbody></table></div></div>';
+
+    const actions = '<button class="btn ghost" data-action="load-study">' + icon('refresh') + 'Reset study template</button>' +
+      '<button class="btn" data-action="download-lab-template">' + icon('download') + 'Blank lab CSV</button>' +
+      '<button class="btn" data-action="export-lab-results">' + icon('download') + 'Export results</button>' +
+      '<button class="btn primary" data-action="download-report">' + icon('file') + 'Generate report</button>';
+
+    return '<div id="lab-view">' +
+      pageHead('Study workflow', 'Lab results', 'Record the disc diffusion or MIC result for each isolate and study drug. The comparison with the imported AMRFinderPlus determinants updates immediately.', actions) +
+      summary + toolbar + table + '</div>';
+  }
+  function setLabResult(isolateId, drug, field, value) {
+    if (!App.dataset) return null;
+    const iso = App.dataset.isolates.find(function (x) { return x.id === isolateId; });
+    if (!iso) return null;
+    iso.phenotypes = iso.phenotypes || [];
+    let p = iso.phenotypes.find(function (x) { return x.drug === drug; });
+    if (!p) {
+      if (!String(value || '').trim()) return null;
+      p = {
+        drug: drug, drugName: E.drugInfo(drug).name, mic: null, zone: null,
+        sir: null, sirSource: null, method: 'Lab entry', note: '', confidence: 0.5
+      };
+      iso.phenotypes.push(p);
+    }
+    if (field === 'sir') {
+      p.sir = E.normalizeSIR(value);
+      p.sirSource = p.sir ? 'reported' : null;
+      if (p.sir) p.confidence = 0.9;
+    } else if (field === 'value') {
+      const raw = String(value || '').trim();
+      if (!raw) { p.mic = null; p.zone = null; }
+      else if (/mm/i.test(raw)) {
+        const m = raw.match(/(\d+(?:\.\d+)?)/);
+        p.zone = (m ? m[1] : raw.replace(/mm/ig, '').trim()) + ' mm';
+        p.mic = null;
+      } else {
+        p.mic = raw;
+        p.zone = null;
+      }
+    }
+    if (!p.sir && p.mic) {
+      const r = E.interpretMIC(drug, p.mic, iso.species);
+      if (r.sir) {
+        p.sir = r.sir;
+        p.sirSource = 'interpreted';
+        p.confidence = r.confidence;
+        p.note = r.note;
+      }
+    }
+    if (!p.sir && !p.mic && !p.zone) {
+      iso.phenotypes = iso.phenotypes.filter(function (x) { return x !== p; });
+      p = null;
+    }
+    App.analysis = R.analyzeDataset(App.dataset);
+    saveState();
+    updateChrome();
+    updateLabSummary();
+    return p;
+  }
+  function updateLabSummary() {
+    if (!App.analysis) return;
+    const stats = labStats();
+    const progress = stats.total ? Math.round(stats.entered / stats.total * 100) : 0;
+    const bar = $('#lab-progress-bar');
+    if (bar) bar.style.width = progress + '%';
+    const barWrap = bar ? bar.parentElement : null;
+    if (barWrap) barWrap.setAttribute('aria-valuenow', String(progress));
+    const setText = function (id, value) {
+      const el = $('#' + id);
+      if (el) el.textContent = value;
+    };
+    setText('lab-stat-entered', stats.entered);
+    setText('lab-stat-isolates', stats.isolatesWith + ' / ' + App.analysis.isolates.length);
+    setText('lab-stat-drugs', stats.drugsCovered + ' / ' + stats.panel.length);
+    setText('lab-stat-assessed', App.analysis.assessedTotal);
+    setText('lab-stat-concordance', pct(App.analysis.strictRate));
+  }
+  function updateLabCellTone(cell, p) {
+    if (!cell) return;
+    cell.classList.remove('lab-sir-s', 'lab-sir-i', 'lab-sir-r', 'lab-sir-none');
+    cell.classList.add('lab-sir-' + (p && p.sir ? p.sir.toLowerCase() : 'none'));
+    cell.title = p ? (p.sirSource === 'interpreted' ? 'SIR interpreted from the entered value' : p.sirSource === 'reported' ? 'SIR reported by the lab' : '') : '';
+  }
+  function bindLab() {
+    const view = $('#lab-view');
+    if (!view) return;
+    view.addEventListener('click', function (e) {
+      const pill = e.target.closest('[data-lab-species]');
+      if (pill) {
+        App.lab.species = pill.getAttribute('data-lab-species');
+        render();
+      }
+    });
+    view.addEventListener('change', function (e) {
+      const el = e.target.closest('[data-lab-field]');
+      if (!el) return;
+      const field = el.getAttribute('data-lab-field');
+      const p = setLabResult(el.getAttribute('data-lab-isolate'), el.getAttribute('data-lab-drug'), field, el.value);
+      const cell = el.closest('.lab-cell');
+      if (field === 'sir' && p) el.value = p.sir || '';
+      if (field === 'value' && cell) {
+        const sel = cell.querySelector('[data-lab-field="sir"]');
+        if (sel) sel.value = p && p.sir ? p.sir : '';
+      }
+      updateLabCellTone(cell, p);
+    });
   }
 
   /* ------------------------------------------------------------------ */
@@ -842,10 +1079,23 @@ window.AMR = window.AMR || {};
       return '<option value="' + esc(ia.isolate.id) + '">' + esc(ia.isolate.id) + ' · ' + esc(E.speciesInfo(ia.isolate.species).short) + '</option>';
     }).join('') : '');
     const preview = pending ? pendingPreview(pending) : '<div class="table-empty">Choose a file or paste text to see a parse preview. Nothing is applied until you confirm.</div>';
+    const studyCard = '<div class="card card-pad study-workflow"><div class="study-workflow-main">' +
+      '<div class="page-eyebrow">Final-year study</div>' +
+      '<div class="study-workflow-title">5 species × 10 public genomes · 8 study drugs</div>' +
+      '<div class="card-sub">E. coli, P. mirabilis, K. pneumoniae, Enterococcus spp. and P. aeruginosa, screened with AMRFinderPlus and compared with the lab AST panel: ampicillin, amoxicillin, cefuroxime, ceftriaxone, cefepime, ciprofloxacin, gentamicin and imipenem.</div>' +
+      '<div class="study-actions"><button class="btn primary" data-action="load-study">' + icon('flask') + 'Load 50-isolate template</button>' +
+      '<button class="btn" data-view="lab">' + icon('flask') + 'Enter lab results</button>' +
+      '<button class="btn ghost" data-action="download-lab-template">' + icon('download') + 'Blank lab CSV</button></div></div>' +
+      '<ol class="study-steps"><li><strong>Load</strong> the 50-isolate scaffold (or keep your current cohort).</li>' +
+      '<li><strong>Import</strong> the AMRFinderPlus resistance gene table for the public genomes.</li>' +
+      '<li><strong>Enter</strong> the lab S/I/R result for each isolate and study drug in Lab results.</li>' +
+      '<li><strong>Review</strong> concordance, then generate the PDF report.</li></ol></div>';
     return pageHead('Ingestion', 'Import data', 'Drop AMRFinderPlus tables, AST tables, narratives, JSON datasets, or evidence images. Everything is parsed locally and can be merged with the current cohort.',
+      '<button class="btn" data-action="load-study">' + icon('flask') + 'Load study</button>' +
       '<button class="btn" data-action="load-demo">' + icon('database') + 'Load demo</button>' +
       '<button class="btn" data-action="export-json">' + icon('download') + 'Export JSON</button>' +
       '<button class="btn danger" data-action="clear-data">' + icon('trash') + 'Clear data</button>') +
+      studyCard +
       '<div class="import-grid"><div class="card card-pad"><div class="card-title">Add evidence</div>' +
       '<div class="dropzone" id="data-dropzone" role="button" tabindex="0"><div class="dz-icon">' + icon('upload') + '</div><div class="dz-title">Drop AMRFinderPlus, AST, narrative, or JSON files</div>' +
       '<div class="dz-sub">or click to choose files</div><div class="dz-formats">.tsv · .csv · .txt · .json · multiple files supported</div></div>' +
@@ -1144,6 +1394,47 @@ window.AMR = window.AMR || {};
     setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
     toast('Dataset exported as JSON.', 'success');
   }
+  function csvCell(value) {
+    const s = String(value == null ? '' : value);
+    return /[",\r\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  }
+  function labCsv(filled) {
+    const panel = studyPanel();
+    const lines = ['isolate_id,species,drug,sir,mic_or_zone'];
+    (App.dataset ? App.dataset.isolates : []).forEach(function (iso) {
+      panel.forEach(function (drug) {
+        const p = filled ? (iso.phenotypes || []).find(function (x) { return x.drug === drug; }) : null;
+        lines.push([
+          csvCell(iso.id),
+          csvCell(E.speciesInfo(iso.species).label),
+          csvCell(E.drugInfo(drug).name),
+          csvCell(p && p.sir ? p.sir : ''),
+          csvCell(p ? (p.mic || p.zone || '') : '')
+        ].join(','));
+      });
+    });
+    return '\uFEFF' + lines.join('\r\n') + '\r\n';
+  }
+  function downloadLabCsv(filled) {
+    if (!App.dataset || !App.dataset.isolates.length) { toast('Load a dataset before downloading a lab template.', 'info'); return; }
+    const blob = new Blob([labCsv(filled)], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filled ? 'amr-prism-lab-results.csv' : 'amr-prism-lab-template.csv';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
+    toast(filled ? 'Lab results exported as CSV.' : 'Blank lab template downloaded: one row per isolate and study drug.', 'success');
+  }
+  function loadStudy() {
+    const hasWork = App.dataset && App.dataset.isolates.some(function (iso) {
+      return (iso.phenotypes || []).length || (iso.genes || []).length;
+    });
+    if (hasWork && !confirm('Load the blank 50-isolate study template? The current genes and lab results in this browser will be replaced. Export the dataset or lab CSV first if you want to keep them.')) return;
+    App.pending = null;
+    setDataset(AMR.STUDY, { render: false, toast: 'Study template loaded: 50 isolates across 5 species and 8 study drugs.' });
+    navigate('overview');
+  }
   function clearData() {
     if (!confirm('Clear the current dataset from this browser? Export JSON first if you want to keep it.')) return;
     App.pending = null;
@@ -1156,12 +1447,15 @@ window.AMR = window.AMR || {};
   }
 
   function handleAction(action, el) {
+    if (action === 'load-study') { loadStudy(); return; }
     if (action === 'load-demo') {
       App.pending = null;
       setDataset(AMR.DEMO, { render: false, toast: 'Demo cohort loaded: 13 synthetic isolates.' });
       navigate('overview');
       return;
     }
+    if (action === 'download-lab-template') { downloadLabCsv(false); return; }
+    if (action === 'export-lab-results') { downloadLabCsv(true); return; }
     if (action === 'clear-data') { clearData(); return; }
     if (action === 'export-json') { exportJson(); return; }
     if (action === 'download-report') { downloadReport(); return; }
@@ -1211,9 +1505,9 @@ window.AMR = window.AMR || {};
     if (saved && saved.dataset) {
       setDataset(saved.dataset, { render: false });
     } else {
-      setDataset(AMR.DEMO, { render: false });
+      setDataset(AMR.STUDY, { render: false });
       App.view = 'overview';
-      setTimeout(function () { toast('Loaded the synthetic 13-isolate teaching cohort. Import your own data any time.', 'info'); }, 700);
+      setTimeout(function () { toast('Loaded the 50-isolate final-year study template. Import AMRFinderPlus results, then enter the lab AST results.', 'info'); }, 700);
     }
     if (saved && VALID_VIEWS.indexOf(saved.view) >= 0) App.view = saved.view;
 
